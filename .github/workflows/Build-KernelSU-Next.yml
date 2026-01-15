@@ -54,16 +54,11 @@ jobs:
          sudo apt update && sudo apt upgrade -y
          sudo apt install -y python3 git curl gcc-aarch64-linux-gnu make bc bison flex libssl-dev patch
 
-      # 替换为KernelSU dev分支（包含ksu-integrate.sh）
+      # 跳过原版KernelSU克隆，通过KSU Next自动集成
       - name: Clone Kernel Source & Dependencies
         run: |
          git clone https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6895.git kernel_workspace
-         git clone --depth=1 --branch dev https://github.com/tiann/KernelSU.git kernel_workspace/KernelSU
          cd kernel_workspace
-         # 验证脚本是否存在
-         ls -l ./KernelSU/scripts/
-         # 执行集成脚本
-         bash ./KernelSU/scripts/ksu-integrate.sh
 
       - name: Set up KernelSU Next
         if: github.event.inputs.KSUNEXT_ENABLED == 'true'
@@ -145,3 +140,12 @@ jobs:
         with:
          name: Image_5.10.266-android12-8300max_cyznbyc
          path: kernel_workspace/out/arch/arm64/boot/Image
+
+      - name: KernelSU刷入说明
+        run: |
+          echo "=== KernelSU刷入步骤 ==="
+          echo "1. 设备解锁Bootloader"
+          echo "2. 下载编译产物中的AnyKernel3包"
+          echo "3. 通过Magisk刷入AnyKernel3包，或通过Fastboot刷入Image文件"
+          echo "   - Fastboot命令：fastboot flash boot Image"
+          echo "4. 重启设备后，安装KernelSU Manager即可使用root权限"

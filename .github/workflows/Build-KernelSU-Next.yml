@@ -54,9 +54,9 @@ jobs:
          sudo apt update && sudo apt upgrade -y
          sudo apt install -y python3 git curl gcc-aarch64-linux-gnu make bc bison flex libssl-dev
 
-      - name: Clone Kernel Source
+      - name: Clone Kernel Source（修复分支为android12）
         run: |
-         git clone https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6895.git -b main kernel_workspace
+         git clone https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6895.git -b android12 kernel_workspace
          cd kernel_workspace
          git clone https://github.com/tiann/KernelSU.git KernelSU
          bash KernelSU/scripts/ksu-integrate.sh
@@ -109,6 +109,7 @@ jobs:
       - name: Check Kernel Version（验证版本）
         run: |
          cd kernel_workspace/out/arch/arm64/boot
+         echo "最终内核版本："
          strings Image | grep "Linux version" | head -n1
          
       - name: Make AnyKernel3

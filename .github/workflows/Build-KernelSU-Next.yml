@@ -52,12 +52,16 @@ jobs:
       - name: Install dependencies
         run: |
          sudo apt update && sudo apt upgrade -y
-         sudo apt install -y python3 git curl gcc-aarch64-linux-gnu make bc bison flex libssl-dev
+         sudo apt install -y python3 git curl gcc-aarch64-linux-gnu make bc bison flex libssl-dev patch
 
-      - name: Clone Kernel Source（修复分支为oneplus/SDM845_R_11）
+      - name: Clone Kernel Source & Dependencies
         run: |
+         # 克隆内核源码
          git clone https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6895.git kernel_workspace
-         git clone https://github.com/tiann/KernelSU.git KernelSU
+         # 克隆KernelSU（修复路径：进入内核目录后再集成）
+         git clone https://github.com/tiann/KernelSU.git kernel_workspace/KernelSU
+         # 进入内核目录执行KernelSU集成脚本
+         cd kernel_workspace
          bash KernelSU/scripts/ksu-integrate.sh
 
       - name: Set up KernelSU Next
@@ -70,25 +74,29 @@ jobs:
          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
          sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
         
-      - name: Set up susfs
+      - name: Set up SUSFS
         if: github.event.inputs.SUSFS_ENABLED == 'true'
         run: |
            cd kernel_workspace
+           # 拉取SUSFS源码（确保分支匹配安卓版本+内核版本）
            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
            git clone https://github.com/TheWildJames/kernel_patches.git
            
+           # 复制SUSFS补丁及文件到对应路径
            cp susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
            cp susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./
            cp susfs4ksu/kernel_patches/fs/* ./fs/
            cp susfs4ksu/kernel_patches/include/linux/* ./include/linux/
 
+           # 应用SUSFS补丁
            cd ./KernelSU-Next
            patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
            cd ..
            patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
+           # 应用额外隐藏补丁
            cp kernel_patches/69_hide_stuff.patch ./
            patch -p1 -F 3 < 69_hide_stuff.patch
-           
+           # 修复编译错误补丁
            cp kernel_patches/apk_sign.c_fix.patch ./
            patch -p1 -F 3 < apk_sign.c_fix.patch
            cp kernel_patches/core_hook.c_fix.patch ./

@@ -54,11 +54,16 @@ jobs:
          sudo apt update && sudo apt upgrade -y
          sudo apt install -y python3 git curl gcc-aarch64-linux-gnu make bc bison flex libssl-dev patch
 
+      # 修复KernelSU克隆及脚本缺失问题
       - name: Clone Kernel Source & Dependencies
         run: |
          git clone https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6895.git kernel_workspace
-         git clone https://github.com/tiann/KernelSU.git kernel_workspace/KernelSU
+         # 克隆KernelSU稳定版本（确保包含ksu-integrate.sh）
+         git clone --depth=1 --branch v0.9.4 https://github.com/tiann/KernelSU.git kernel_workspace/KernelSU
          cd kernel_workspace
+         # 验证脚本是否存在
+         ls -l ./KernelSU/scripts/
+         # 执行集成脚本
          bash ./KernelSU/scripts/ksu-integrate.sh
 
       - name: Set up KernelSU Next

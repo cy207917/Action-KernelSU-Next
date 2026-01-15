@@ -47,7 +47,7 @@ jobs:
       - name: Configure Git
         run: |
          git config --global user.name "build"
-         git config --global user.email "3436378798@qq.com"
+         git config --global user.email "2637860272@qq.com"
 
       - name: Install dependencies
         run: |
@@ -56,8 +56,7 @@ jobs:
 
       - name: Clone Kernel Source（修复分支为oneplus/SDM845_R_11）
         run: |
-         git clone https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6895.git -b oneplus/SDM845_R_11 kernel_workspace
-         cd kernel_workspace
+         git clone https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6895.git kernel_workspace
          git clone https://github.com/tiann/KernelSU.git KernelSU
          bash KernelSU/scripts/ksu-integrate.sh
 

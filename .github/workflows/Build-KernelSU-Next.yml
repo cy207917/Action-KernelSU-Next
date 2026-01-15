@@ -56,60 +56,65 @@ jobs:
 
       - name: Clone Kernel Source & Dependencies
         run: |
-         # 克隆内核源码
          git clone https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6895.git kernel_workspace
-         # 克隆KernelSU（修复路径：进入内核目录后再集成）
          git clone https://github.com/tiann/KernelSU.git kernel_workspace/KernelSU
-         # 进入内核目录执行KernelSU集成脚本
          cd kernel_workspace
-         bash KernelSU/scripts/ksu-integrate.sh
+         bash ./KernelSU/scripts/ksu-integrate.sh
 
       - name: Set up KernelSU Next
         if: github.event.inputs.KSUNEXT_ENABLED == 'true'
         run: |
-         cd kernel_workspace
+         cd kernel_workspace/kernel_platform
          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
          cd KernelSU-Next
-         KSU_VERSION=$(expr $(git rev-list --count HEAD) "+" 10200)
+         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
          sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
         
       - name: Set up SUSFS
         if: github.event.inputs.SUSFS_ENABLED == 'true'
         run: |
-           cd kernel_workspace
-           # 拉取SUSFS源码（确保分支匹配安卓版本+内核版本）
-           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
-           git clone https://github.com/TheWildJames/kernel_patches.git
-           
-           # 复制SUSFS补丁及文件到对应路径
-           cp susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
-           cp susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./
-           cp susfs4ksu/kernel_patches/fs/* ./fs/
-           cp susfs4ksu/kernel_patches/include/linux/* ./include/linux/
-
-           # 应用SUSFS补丁
-           cd ./KernelSU-Next
-           patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
-           cd ..
-           patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
-           # 应用额外隐藏补丁
-           cp kernel_patches/69_hide_stuff.patch ./
-           patch -p1 -F 3 < 69_hide_stuff.patch
-           # 修复编译错误补丁
-           cp kernel_patches/apk_sign.c_fix.patch ./
-           patch -p1 -F 3 < apk_sign.c_fix.patch
-           cp kernel_patches/core_hook.c_fix.patch ./
-           patch -p1 --fuzz=3 < core_hook.c_fix.patch
-           cp kernel_patches/selinux.c_fix.patch ./
-           patch -p1 -F 3 < selinux.c_fix.patch
+          cd kernel_workspace
+          # 克隆SUSFS及补丁仓库
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
+          git clone https://github.com/TheWildJames/kernel_patches.git
+          # 进入kernel_platform目录
+          cd kernel_platform
+          
+          # 复制SUSFS补丁到对应路径
+          cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
+          # 复制SUSFS文件到内核目录
+          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          
+          # 应用SUSFS补丁
+          cd ./KernelSU-Next
+          patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+          cd ../common
+          patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
+          
+          # 应用隐藏及修复补丁
+          cp ../../kernel_patches/69_hide_stuff.patch ./
+          patch -p1 -F 3 < 69_hide_stuff.patch
+          git add -A && git commit -a -m "BUILD Kernel"
+          
+          # 应用编译修复补丁
+          cd ..
+          cp ../kernel_patches/apk_sign.c_fix.patch ./
+          patch -p1 -F 3 < apk_sign.c_fix.patch
+          cp ../kernel_patches/core_hook.c_fix.patch ./
+          patch -p1 --fuzz=3 < core_hook.c_fix.patch
+          cp ../kernel_patches/selinux.c_fix.patch ./
+          patch -p1 -F 3 < selinux.c_fix.patch
+          
+          # 提交补丁修改
+          cd ./msm-kernel && git add -A && git commit -a -m "BUILD Kernel"
            
       - name: Build kernel（固定版本为5.10.266-android12-8300max_cyznbyc）
         run: |
          cd kernel_workspace
-         # 修改Makefile基础版本为5.10.266
          sed -i "s/^KERNELVERSION := .*/KERNELVERSION := 5.10.266/" Makefile
-         # 指定LOCALVERSION完成完整版本拼接
          make O=out ARCH=arm64 ${{ github.event.inputs.FEIL }} LOCALVERSION="-android12-8300max_cyznbyc"
          make O=out ARCH=arm64 -j$(nproc)
 
